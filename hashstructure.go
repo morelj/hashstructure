@@ -105,6 +105,17 @@ type visitOpts struct {
 }
 
 func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
+	// Check whether v implements the Hashable interface.
+	// If so, use it to produce the hash
+	if v.CanInterface() {
+		hashable, ok := v.Interface().(Hashable)
+		if ok {
+			w.h.Reset()
+			err := hashable.Hash(w.h)
+			return w.h.Sum64(), err
+		}
+	}
+
 	t := reflect.TypeOf(0)
 
 	// Loop since these can be wrapped in multiple layers of pointers

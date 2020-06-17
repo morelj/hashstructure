@@ -2,6 +2,7 @@ package hashstructure
 
 import (
 	"fmt"
+	"io"
 	"testing"
 	"time"
 )
@@ -539,6 +540,52 @@ func TestHash_includableMap(t *testing.T) {
 	}
 }
 
+func TestHash_hashable(t *testing.T) {
+	cases := []struct {
+		One, Two interface{}
+		Match    bool
+	}{
+		{
+			testHashable(time.Unix(0, 0)),
+			testHashable(time.Unix(1136239445, 0)),
+			false,
+		},
+
+		{
+			testHashable(time.Time{}),
+			testHashable(time.Unix(1136239445, 0)),
+			false,
+		},
+
+		{
+			testHashable(time.Unix(1136239445, 0)),
+			testHashable(time.Unix(1136239445, 0)),
+			true,
+		},
+	}
+
+	for _, tc := range cases {
+		one, err := Hash(tc.One, nil)
+		if err != nil {
+			t.Fatalf("Failed to hash %#v: %s", tc.One, err)
+		}
+		two, err := Hash(tc.Two, nil)
+		if err != nil {
+			t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
+		}
+
+		// Zero is always wrong
+		if one == 0 {
+			t.Fatalf("zero hash: %#v", tc.One)
+		}
+
+		// Compare
+		if (one == two) != tc.Match {
+			t.Fatalf("bad, expected: %#v\n\n%#v\n\n%#v", tc.Match, tc.One, tc.Two)
+		}
+	}
+}
+
 type testIncludable struct {
 	Value  string
 	Ignore string
@@ -562,4 +609,15 @@ func (t testIncludableMap) HashIncludeMap(field string, k, v interface{}) (bool,
 	}
 
 	return true, nil
+}
+
+type testHashable time.Time
+
+func (t testHashable) Hash(w io.Writer) error {
+	data, err := time.Time(t).MarshalBinary()
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(data)
+	return err
 }
